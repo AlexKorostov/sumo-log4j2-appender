@@ -8,7 +8,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.status.StatusLogger;
 
 public class HttpProxySettingsCreator {
     private ProxySettings proxySettings;
@@ -22,7 +22,7 @@ public class HttpProxySettingsCreator {
         try {
             host = java.net.InetAddress.getLocalHost().getHostName();
         } catch (Exception e) {
-            LogLog.error("Unable to obtain local hostname. Defaulting to localhost", e);
+            StatusLogger.getLogger().error("Unable to obtain local hostname. Defaulting to localhost", e);
         }
         return host;
     }

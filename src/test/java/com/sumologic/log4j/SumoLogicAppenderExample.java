@@ -25,8 +25,10 @@
  */
 package com.sumologic.log4j;
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.status.StatusLogger;
 
 /**
  * Simple example on using the Sumo Logic Log4J appender.
@@ -34,10 +36,10 @@ import org.apache.log4j.helpers.LogLog;
  * @author Stefan Zier (stefan@sumologic.com)
  */
 public class SumoLogicAppenderExample {
-  private static Logger logger = Logger.getLogger(SumoLogicAppenderExample.class);
+  private static Logger logger = LogManager.getLogger(SumoLogicAppenderExample.class);
 
   public static void main(String[] args) throws InterruptedException {
-      LogLog.setInternalDebugging(true);
+      StatusLogger.getLogger().setLevel(Level.DEBUG);
 
 
       for (int i = 0; i < 50; i++) {

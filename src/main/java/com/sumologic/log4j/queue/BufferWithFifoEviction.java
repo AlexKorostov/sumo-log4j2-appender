@@ -25,9 +25,10 @@
  */
 package com.sumologic.log4j.queue;
 
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.util.Collection;
+
 import static com.sumologic.log4j.queue.CostBoundedConcurrentQueue.CostAssigner;
 /**
  * Buffer for one concurrent producer and one concurrent consumer which takes members of
@@ -79,7 +80,7 @@ public class BufferWithFifoEviction<T> extends BufferWithEviction<T> {
         } while (queue.cost() > targetCost);
 
         if (numEvicted > 0) {
-            LogLog.warn("Evicted " + numEvicted + " messages from buffer");
+            StatusLogger.getLogger().warn("Evicted " + numEvicted + " messages from buffer");
         }
 
         return true;

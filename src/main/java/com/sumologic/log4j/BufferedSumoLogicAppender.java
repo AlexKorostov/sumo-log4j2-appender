@@ -31,12 +31,22 @@ import com.sumologic.log4j.http.ProxySettings;
 import com.sumologic.log4j.http.SumoHttpSender;
 import com.sumologic.log4j.queue.BufferWithEviction;
 import com.sumologic.log4j.queue.BufferWithFifoEviction;
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Layout;
-import org.apache.log4j.helpers.LogLog;
-import org.apache.log4j.spi.LoggingEvent;
+import org.apache.http.util.ExceptionUtils;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.Layout;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.plugins.Plugin;
+import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
+import org.apache.logging.log4j.core.config.plugins.PluginElement;
+import org.apache.logging.log4j.core.config.plugins.PluginFactory;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.apache.logging.log4j.core.util.Throwables;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 
 import static com.sumologic.log4j.queue.CostBoundedConcurrentQueue.CostAssigner;
 
@@ -45,7 +55,8 @@ import static com.sumologic.log4j.queue.CostBoundedConcurrentQueue.CostAssigner;
  *
  * @author Jose Muniz (jose@sumologic.com)
  */
-public class BufferedSumoLogicAppender extends AppenderSkeleton {
+@Plugin(name = "BufferedSumoLogic", category = "Core", elementType = "appender", printObject = true)
+public class BufferedSumoLogicAppender extends AbstractAppender {
 
     private String url = null;
 
@@ -71,6 +82,27 @@ public class BufferedSumoLogicAppender extends AppenderSkeleton {
     private SumoHttpSender sender;
     private SumoBufferFlusher flusher;
     volatile private BufferWithEviction<String> queue;
+
+    private BufferedSumoLogicAppender(String name, Layout layout, Filter filter, boolean ignoreExceptions) {
+        super(name, filter, layout, ignoreExceptions);
+    }
+
+    @PluginFactory
+    public static BufferedSumoLogicAppender createAppender(@PluginAttribute("name") String name,
+                                                   @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
+                                                   @PluginElement("Layout") Layout layout,
+                                                   @PluginElement("Filters") Filter filter) {
+
+        if (name == null) {
+            LOGGER.error("No name provided for StubAppender");
+            return null;
+        }
+
+        if (layout == null) {
+            layout = PatternLayout.createDefaultLayout();
+        }
+        return new BufferedSumoLogicAppender(name, layout, filter, ignoreExceptions);
+    }
 
     /* All the parameters */
 
@@ -160,8 +192,9 @@ public class BufferedSumoLogicAppender extends AppenderSkeleton {
     }
 
     @Override
-    public void activateOptions() {
-        LogLog.debug("Activating options");
+    public void start() {
+        super.start();
+        StatusLogger.getLogger().debug("Activating options");
 
         /* Initialize queue */
         if (queue == null) {
@@ -210,33 +243,31 @@ public class BufferedSumoLogicAppender extends AppenderSkeleton {
     }
 
     @Override
-    protected void append(LoggingEvent event) {
+    public void append(LogEvent event) {
         if (!checkEntryConditions()) {
-            LogLog.warn("Appender not initialized. Dropping log entry");
+            StatusLogger.getLogger().warn("Appender not initialized. Dropping log entry");
             return;
         }
 
         StringBuilder builder = new StringBuilder(1024);
-        builder.append(layout.format(event));
-        if (layout.ignoresThrowable()) {
-            String[] throwableStrRep = event.getThrowableStrRep();
-            if (throwableStrRep != null) {
-                for (String line : throwableStrRep) {
-                    builder.append(line);
-                    builder.append(Layout.LINE_SEP);
-                }
+        builder.append(getLayout().toSerializable(event));
+        if (ignoreExceptions() && event.getThrown() != null) {
+            for (String line : Throwables.toStringList(event.getThrown())) {
+                builder.append(line);
+                builder.append("\r\n");
             }
         }
 
         try {
             queue.add(builder.toString());
         } catch (Exception e) {
-            LogLog.error("Unable to insert log entry into log queue. ", e);
+            StatusLogger.getLogger().error("Unable to insert log entry into log queue. ", e);
         }
     }
 
     @Override
-    public void close() {
+    public void stop() {
+        super.stop();
         try {
             sender.close();
             sender = null;
@@ -244,14 +275,10 @@ public class BufferedSumoLogicAppender extends AppenderSkeleton {
             flusher.stop();
             flusher = null;
         } catch (IOException e) {
-            LogLog.error("Unable to close appender", e);
+            StatusLogger.getLogger().error("Unable to close appender", e);
         }
     }
 
-    @Override
-    public boolean requiresLayout() {
-        return true;
-    }
 
     // Private bits.
 

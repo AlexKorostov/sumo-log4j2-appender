@@ -35,7 +35,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.io.IOException;
 
@@ -134,18 +134,18 @@ public class SumoHttpSender {
             HttpResponse response = httpClient.execute(post);
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != 200) {
-                LogLog.warn(String.format("Received HTTP error from Sumo Service: %d", statusCode));
+                StatusLogger.getLogger().warn(String.format("Received HTTP error from Sumo Service: %d", statusCode));
                 // Not success. Only retry if status is unavailable.
                 if (statusCode == 503) {
                     throw new IOException("Server unavailable");
                 }
             }
             //need to consume the body if you want to re-use the connection.
-            LogLog.debug("Successfully sent log request to Sumo Logic");
+            StatusLogger.getLogger().debug("Successfully sent log request to Sumo Logic");
             EntityUtils.consume(response.getEntity());
         } catch (IOException e) {
-            LogLog.warn("Could not send log to Sumo Logic");
-            LogLog.debug("Reason:", e);
+            StatusLogger.getLogger().warn("Could not send log to Sumo Logic");
+            StatusLogger.getLogger().debug("Reason:", e);
             try {
                 post.abort();
             } catch (Exception ignore) {

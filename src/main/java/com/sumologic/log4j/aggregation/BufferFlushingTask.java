@@ -26,7 +26,7 @@
 package com.sumologic.log4j.aggregation;
 
 import com.sumologic.log4j.queue.BufferWithEviction;
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -55,7 +55,7 @@ public abstract class BufferFlushingTask<In, Out> implements Runnable {
         messageQueue.drainTo(messages);
 
         if (messages.size() > 0) {
-            LogLog.debug(String.format("%s - Flushing and sending out %d messages (%d messages left)",
+            StatusLogger.getLogger().debug(String.format("%s - Flushing and sending out %d messages (%d messages left)",
                     new java.util.Date(),
                     messages.size(),
                     messageQueue.size()));
@@ -91,7 +91,7 @@ public abstract class BufferFlushingTask<In, Out> implements Runnable {
                 flushAndSend();
             }
             catch (Exception e) {
-                LogLog.warn("Exception while attempting to flush and send", e);
+                StatusLogger.getLogger().warn("Exception while attempting to flush and send", e);
             }
         }
     }

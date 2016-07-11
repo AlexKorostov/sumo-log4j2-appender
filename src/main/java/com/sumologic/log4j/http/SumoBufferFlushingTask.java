@@ -27,7 +27,7 @@ package com.sumologic.log4j.http;
 
 import com.sumologic.log4j.aggregation.BufferFlushingTask;
 import com.sumologic.log4j.queue.BufferWithEviction;
-import org.apache.log4j.helpers.LogLog;
+import org.apache.logging.log4j.status.StatusLogger;
 
 import java.util.List;
 
@@ -90,7 +90,7 @@ public class SumoBufferFlushingTask extends BufferFlushingTask<String, String> {
         if (sender != null && sender.isInitialized()) {
             sender.send(body, name);
         } else {
-            LogLog.error("HTTPSender is not initialized");
+            StatusLogger.getLogger().error("HTTPSender is not initialized");
         }
     }
 }

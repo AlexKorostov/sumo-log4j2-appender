@@ -28,14 +28,26 @@ package com.sumologic.log4j;
 
 import com.sumologic.log4j.server.AggregatingHttpHandler;
 import com.sumologic.log4j.server.MockHttpServer;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.apache.logging.log4j.junit.LoggerContextRule;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+
+import java.nio.charset.Charset;
+
 import static org.junit.Assert.*;
 
 public class SumoLogicAppenderTest {
+    @Rule
+    public LoggerContextRule init = new LoggerContextRule("log4j2.xml");
 
     private static final int PORT = 10010;
     private static final String ENDPOINT_URL = "http://localhost:" + PORT;
@@ -46,16 +58,19 @@ public class SumoLogicAppenderTest {
 
 
     private void setUpLogger() {
-        SumoLogicAppender sla = new SumoLogicAppender();
+        final LoggerContext context = init.getContext();
+        final Configuration config = context.getConfiguration();
+        final PatternLayout layout = PatternLayout.createLayout("-- %m%n", null, null, null, Charset.forName("UTF-8"), true, false, null, null);
+        final SumoLogicAppender sla = SumoLogicAppender.createAppender("test", false, layout, null);
         sla.setUrl(ENDPOINT_URL);
-        // TODO: Shouldn't there be a default layout?
-        sla.setLayout(new PatternLayout("-- %m%n"));
-        sla.activateOptions();
+        sla.initialize();
+        sla.start();
+        config.addAppender(sla);
 
-        loggerInTest = Logger.getLogger("TestSingleMessage");
-        loggerInTest.addAppender(sla);
-        loggerInTest.setAdditivity(false);
-
+        loggerInTest = LogManager.getLogger("test");
+        LoggerConfig loggerConfig = config.getLoggerConfig(loggerInTest.getName());
+        loggerConfig.addAppender(sla, Level.INFO, null);
+        loggerConfig.setAdditive(true);
     }
 
 
@@ -72,27 +87,24 @@ public class SumoLogicAppenderTest {
     @After
     public void tearDown() throws Exception {
         server.stop();
-        loggerInTest.removeAllAppenders();
     }
 
     @Test
     public void testSingleMessage() throws Exception {
-
         loggerInTest.info("This is a message");
 
-        assertEquals(handler.getExchanges().size(), 1);
-        assertEquals(handler.getExchanges().get(0).getBody(), "-- This is a message\n");
+        assertEquals(1, handler.getExchanges().size());
+        assertEquals("-- This is a message\n", handler.getExchanges().get(0).getBody());
     }
 
     @Test
     public void testMultipleMessages() throws Exception {
-
         int numMessages = 20;
         for (int i = 0; i < numMessages / 2; i ++) {
             loggerInTest.info("info " + i);
             loggerInTest.error("error " + i);
         }
 
-        assertEquals(handler.getExchanges().size(), numMessages);
+        assertEquals(numMessages, handler.getExchanges().size());
     }
 }

@@ -28,6 +28,7 @@ package com.sumologic.log4j;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.SerializableEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
@@ -36,19 +37,28 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Layout;
-import org.apache.log4j.helpers.LogLog;
-import org.apache.log4j.spi.LoggingEvent;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.Layout;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.plugins.Plugin;
+import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
+import org.apache.logging.log4j.core.config.plugins.PluginElement;
+import org.apache.logging.log4j.core.config.plugins.PluginFactory;
+import org.apache.logging.log4j.core.layout.PatternLayout;
+import org.apache.logging.log4j.core.util.Throwables;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.io.UnsupportedEncodingException;
 
 /**
  * Appender that sends log messages to Sumo Logic.
  *
  * @author Stefan Zier (stefan@sumologic.com)
  */
-public class SumoLogicAppender extends AppenderSkeleton {
+@Plugin(name = "SumoLogic", category = "Core", elementType = "appender", printObject = true)
+public class SumoLogicAppender extends AbstractAppender {
 
   private String url = null;
   private int connectionTimeout = 1000;
@@ -68,29 +78,49 @@ public class SumoLogicAppender extends AppenderSkeleton {
     this.socketTimeout = socketTimeout;
   }
 
+  private SumoLogicAppender(String name, Layout layout, Filter filter, boolean ignoreExceptions) {
+    super(name, filter, layout, ignoreExceptions);
+  }
+
+  @PluginFactory
+  public static SumoLogicAppender createAppender(@PluginAttribute("name") String name,
+                                            @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
+                                            @PluginElement("Layout") Layout layout,
+                                            @PluginElement("Filters") Filter filter) {
+
+    if (name == null) {
+      LOGGER.error("No name provided for StubAppender");
+      return null;
+    }
+
+    if (layout == null) {
+      layout = PatternLayout.createDefaultLayout();
+    }
+    return new SumoLogicAppender(name, layout, filter, ignoreExceptions);
+  }
+
   @Override
-  public void activateOptions() {
+  public void start() {
+    super.start();
     HttpParams params = new BasicHttpParams();
     HttpConnectionParams.setConnectionTimeout(params, connectionTimeout);
     HttpConnectionParams.setSoTimeout(params, socketTimeout);
     httpClient = new DefaultHttpClient(new ThreadSafeClientConnManager(), params);
   }
 
+
   @Override
-  protected void append(LoggingEvent event) {
+  public void append(LogEvent event) {
     if (!checkEntryConditions()) {
       return;
     }
 
     StringBuilder builder = new StringBuilder(1024);
-    builder.append(layout.format(event));
-    if (layout.ignoresThrowable()) {
-      String[] throwableStrRep = event.getThrowableStrRep();
-      if (throwableStrRep != null) {
-        for (String line : throwableStrRep) {
-          builder.append(line);
-          builder.append(Layout.LINE_SEP);
-        }
+    builder.append(getLayout().toSerializable(event));
+    if (ignoreExceptions() && event.getThrown() != null) {
+      for (String line : Throwables.toStringList(event.getThrown())) {
+        builder.append(line);
+        builder.append("\r\n");
       }
     }
 
@@ -98,21 +128,17 @@ public class SumoLogicAppender extends AppenderSkeleton {
   }
 
   @Override
-  public void close() {
+  public void stop() {
+    super.stop();
     httpClient.getConnectionManager().shutdown();
     httpClient = null;
-  }
-
-  @Override
-  public boolean requiresLayout() {
-    return true;
   }
 
   // Private bits.
 
   private boolean checkEntryConditions() {
     if (httpClient == null) {
-      LogLog.warn("HttpClient not initialized.");
+      LOGGER.warn("HttpClient not initialized.");
       return false;
     }
 
@@ -127,12 +153,12 @@ public class SumoLogicAppender extends AppenderSkeleton {
       HttpResponse response = httpClient.execute(post);
       int statusCode = response.getStatusLine().getStatusCode();
       if (statusCode != 200) {
-        LogLog.warn(String.format("Received HTTP error from Sumo Service: %d", statusCode));
+        LOGGER.warn(String.format("Received HTTP error from Sumo Service: %d", statusCode));
       }
       //need to consume the body if you want to re-use the connection.
       EntityUtils.consume(response.getEntity());
     } catch (IOException e) {
-      LogLog.warn("Could not send log to Sumo Logic", e);
+      LOGGER.warn("Could not send log to Sumo Logic", e);
       try { post.abort(); } catch (Exception ignore) {}
     }
   }
