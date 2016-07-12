@@ -77,7 +77,7 @@ public class BufferedSumoLogicAppenderTest {
         final Configuration config = context.getConfiguration();
         final PatternLayout layout = PatternLayout.createLayout("%m%n", null, null, null, Charset.forName("UTF-8"), true, false, null, null);
         final BufferedSumoLogicAppender appender = BufferedSumoLogicAppender.createAppender("test", ENDPOINT_URL, null,
-            50000, 5000, 5000, 100, 500, 100, 20000, null, -1, null, null, null, null, false, layout, null);
+            60000, 1000, 10000, 250, 10000, 100, 1000000, null, -1, null, null, null, null, false, layout, null);
         appender.setMessagesPerRequest(batchSize);
         appender.setMaxFlushInterval(windowSize);
         appender.setFlushingAccuracy(precision);
