@@ -60,9 +60,9 @@ import java.io.UnsupportedEncodingException;
 @Plugin(name = "SumoLogic", category = "Core", elementType = "appender", printObject = true)
 public class SumoLogicAppender extends AbstractAppender {
 
-  private String url = null;
-  private int connectionTimeout = 1000;
-  private int socketTimeout = 60000;
+  private String url;
+  private int connectionTimeout;
+  private int socketTimeout;
 
   private HttpClient httpClient = null;
 
@@ -84,19 +84,29 @@ public class SumoLogicAppender extends AbstractAppender {
 
   @PluginFactory
   public static SumoLogicAppender createAppender(@PluginAttribute("name") String name,
+                                            @PluginAttribute("url") String url,
+                                            @PluginAttribute(value = "socketTimeout", defaultInt = 60000) int socketTimeout,
+                                            @PluginAttribute(value = "connectionTimeout", defaultInt = 1000) int connectionTimeout,
                                             @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
                                             @PluginElement("Layout") Layout layout,
                                             @PluginElement("Filters") Filter filter) {
 
     if (name == null) {
-      LOGGER.error("No name provided for StubAppender");
+      LOGGER.error("No name provided for SumoLogicAppender");
       return null;
     }
-
+    if (url == null) {
+      LOGGER.error("No url provided for SumoLogicAppender");
+      return null;
+    }
     if (layout == null) {
       layout = PatternLayout.createDefaultLayout();
     }
-    return new SumoLogicAppender(name, layout, filter, ignoreExceptions);
+    SumoLogicAppender appender = new SumoLogicAppender(name, layout, filter, ignoreExceptions);
+    appender.setUrl(url);
+    appender.setSocketTimeout(socketTimeout);
+    appender.setConnectionTimeout(connectionTimeout);
+    return appender;
   }
 
   @Override
@@ -120,7 +130,7 @@ public class SumoLogicAppender extends AbstractAppender {
     if (ignoreExceptions() && event.getThrown() != null) {
       for (String line : Throwables.toStringList(event.getThrown())) {
         builder.append(line);
-        builder.append("\r\n");
+        builder.append("\n");
       }
     }
 

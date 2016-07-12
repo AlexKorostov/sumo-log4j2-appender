@@ -42,13 +42,16 @@ public class SumoLogicAppenderExample {
       StatusLogger.getLogger().setLevel(Level.DEBUG);
 
 
-      for (int i = 0; i < 50; i++) {
+      long start = System.currentTimeMillis();
+      for (int i = 0; i < 5; i++) {
 
-          for (int j = 0; j < 500; j++)
+          for (int j = 0; j < 100; j++)
             logger.error("Greetings from the SumoLogicAppender!");
 
           logger.error("Multiline message", new RuntimeException());
           Thread.sleep(100);
       }
+    System.out.println("Elapsed time " + (System.currentTimeMillis() - start) + " ms");
+    Thread.sleep(5000);
   }
 }

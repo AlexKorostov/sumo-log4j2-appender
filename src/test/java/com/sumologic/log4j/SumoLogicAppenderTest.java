@@ -61,8 +61,7 @@ public class SumoLogicAppenderTest {
         final LoggerContext context = init.getContext();
         final Configuration config = context.getConfiguration();
         final PatternLayout layout = PatternLayout.createLayout("-- %m%n", null, null, null, Charset.forName("UTF-8"), true, false, null, null);
-        final SumoLogicAppender sla = SumoLogicAppender.createAppender("test", false, layout, null);
-        sla.setUrl(ENDPOINT_URL);
+        final SumoLogicAppender sla = SumoLogicAppender.createAppender("test", ENDPOINT_URL, 5000, 5000, false, layout, null);
         sla.initialize();
         sla.start();
         config.addAppender(sla);

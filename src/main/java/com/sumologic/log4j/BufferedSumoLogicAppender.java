@@ -45,8 +45,6 @@ import org.apache.logging.log4j.core.util.Throwables;
 import org.apache.logging.log4j.status.StatusLogger;
 
 import java.io.IOException;
-import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
 
 import static com.sumologic.log4j.queue.CostBoundedConcurrentQueue.CostAssigner;
 
@@ -58,26 +56,26 @@ import static com.sumologic.log4j.queue.CostBoundedConcurrentQueue.CostAssigner;
 @Plugin(name = "BufferedSumoLogic", category = "Core", elementType = "appender", printObject = true)
 public class BufferedSumoLogicAppender extends AbstractAppender {
 
-    private String url = null;
+    private String url;
 
-    private String proxyHost = null;
-    private int proxyPort = -1;
-    private String proxyAuth = null;
-    private String proxyUser = null;
-    private String proxyPassword = null;
-    private String proxyDomain = null;
+    private String proxyHost;
+    private int proxyPort;
+    private String proxyAuth;
+    private String proxyUser;
+    private String proxyPassword;
+    private String proxyDomain;
 
 
-    private int connectionTimeout = 1000;
-    private int socketTimeout = 60000;
-    private int retryInterval = 10000;        // Once a request fails, how often until we retry.
+    private int connectionTimeout;
+    private int socketTimeout;
+    private int retryInterval;        // Once a request fails, how often until we retry.
 
-    private long messagesPerRequest = 100;    // How many messages need to be in the queue before we flush
-    private long maxFlushInterval = 10000;    // Maximum interval between flushes (ms)
-    private long flushingAccuracy = 250;      // How often the flushed thread looks into the message queue (ms)
-    private String sourceName = "Log4J-SumoObject"; // Name to stamp for querying with _sourceName
+    private long messagesPerRequest;    // How many messages need to be in the queue before we flush
+    private long maxFlushInterval;    // Maximum interval between flushes (ms)
+    private long flushingAccuracy;      // How often the flushed thread looks into the message queue (ms)
+    private String sourceName; // Name to stamp for querying with _sourceName
 
-    private long maxQueueSizeBytes = 1000000;
+    private long maxQueueSizeBytes;
 
     private SumoHttpSender sender;
     private SumoBufferFlusher flusher;
@@ -89,19 +87,60 @@ public class BufferedSumoLogicAppender extends AbstractAppender {
 
     @PluginFactory
     public static BufferedSumoLogicAppender createAppender(@PluginAttribute("name") String name,
-                                                   @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
-                                                   @PluginElement("Layout") Layout layout,
-                                                   @PluginElement("Filters") Filter filter) {
+                                                           @PluginAttribute("url") String url,
+                                                           @PluginAttribute(value = "sourceName", defaultString = "Log4J-SumoObject") String sourceName,
+                                                           @PluginAttribute(value = "socketTimeout", defaultInt = 60000) int socketTimeout,
+                                                           @PluginAttribute(value = "connectionTimeout", defaultInt = 1000) int connectionTimeout,
+                                                           @PluginAttribute(value = "retryInterval",defaultInt = 10000) int retryInterval,
+                                                           @PluginAttribute(value = "flushingAccuracy", defaultInt = 250) int flushingAccuracy,
+                                                           @PluginAttribute(value = "maxFlushInterval", defaultInt = 10000) int maxFlushInterval,
+                                                           @PluginAttribute(value = "messagesPerRequest", defaultInt = 100) int messagesPerRequest,
+                                                           @PluginAttribute(value = "maxQueueSizeBytes", defaultInt = 1000000) int maxQueueSizeBytes,
+                                                           @PluginAttribute("proxyHost") String proxyHost,
+                                                           @PluginAttribute(value = "proxyPort", defaultInt = -1) int proxyPort,
+                                                           @PluginAttribute("proxyAuth") String proxyAuth,
+                                                           @PluginAttribute("proxyUser") String proxyUser,
+                                                           @PluginAttribute("proxyPassword") String proxyPassword,
+                                                           @PluginAttribute("proxyDomain") String proxyDomain,
+                                                           @PluginAttribute("ignoreExceptions") boolean ignoreExceptions,
+                                                           @PluginElement("Layout") Layout layout,
+                                                           @PluginElement("Filters") Filter filter) {
 
         if (name == null) {
-            LOGGER.error("No name provided for StubAppender");
+            LOGGER.error("No name provided for SumoLogicAppender");
             return null;
         }
-
+        if (url == null) {
+            LOGGER.error("No url provided for SumoLogicAppender");
+            return null;
+        }
         if (layout == null) {
             layout = PatternLayout.createDefaultLayout();
         }
-        return new BufferedSumoLogicAppender(name, layout, filter, ignoreExceptions);
+        BufferedSumoLogicAppender appender = new BufferedSumoLogicAppender(name, layout, filter, ignoreExceptions);
+        appender.setUrl(url);
+        if (sourceName != null) {
+            appender.setSourceName(sourceName);
+        }
+        appender.setSocketTimeout(socketTimeout);
+        appender.setConnectionTimeout(connectionTimeout);
+        appender.setRetryInterval(retryInterval);
+        appender.setFlushingAccuracy(flushingAccuracy);
+        appender.setMaxFlushInterval(maxFlushInterval);
+        appender.setMessagesPerRequest(messagesPerRequest);
+        appender.setMaxQueueSizeBytes(maxQueueSizeBytes);
+        appender.setProxyPort(proxyPort);
+        if (proxyHost != null)
+            appender.setProxyHost(proxyHost);
+        if (proxyAuth != null)
+            appender.setProxyAuth(proxyAuth);
+        if (proxyUser != null)
+            appender.setProxyUser(proxyUser);
+        if (proxyPassword != null)
+            appender.setProxyPassword(proxyPassword);
+        if (proxyDomain != null)
+            appender.setProxyDomain(proxyDomain);
+        return appender;
     }
 
     /* All the parameters */
@@ -254,7 +293,7 @@ public class BufferedSumoLogicAppender extends AbstractAppender {
         if (ignoreExceptions() && event.getThrown() != null) {
             for (String line : Throwables.toStringList(event.getThrown())) {
                 builder.append(line);
-                builder.append("\r\n");
+                builder.append("\n");
             }
         }
 
